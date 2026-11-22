@@ -24,8 +24,10 @@ The database is created in `data/app.db` and uploads go to `public/uploads/` (bo
 | --- | --- |
 | `SESSION_SECRET` | Long random text used to sign login cookies. Required when `NODE_ENV=production`. |
 | `NODE_ENV` | Set to `production` when deployed over HTTPS (turns on secure cookies). |
+| `DATA_DIR` | Folder for the database and uploads (`app.db` and `uploads/`). Point it at a persistent disk when hosting. Default: `data/` and `public/uploads/`. |
 | `PORT` | Port to listen on. Default 3000. |
 
 ## Hosting
 
 This is a server app, so it cannot run on GitHub Pages. It needs a host that runs Node.js and keeps a disk for `data/` and `public/uploads/`.
+
