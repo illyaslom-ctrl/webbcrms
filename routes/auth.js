@@ -7,6 +7,7 @@ const { verifyCsrf } = require('../middleware/csrf');
 const requireLogin = require('../middleware/requireLogin');
 const { validateAccount } = require('../lib/validate');
 const { hashPassword, comparePassword, DUMMY_HASH } = require('../lib/passwords');
+const { logIn } = require('../lib/session');
 
 const router = express.Router();
 
@@ -14,19 +15,8 @@ const findUser = db.prepare('SELECT id, username, password_hash FROM users WHERE
 const insertUser = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)');
 
 function requireGuest(req, res, next) {
-  if (req.session.user) return res.redirect('/levels');
+  if (req.user) return res.redirect('/levels');
   next();
-}
-
-// Replace the session ID (stops session fixation), then store the user.
-function logIn(req, user) {
-  return new Promise((resolve, reject) => {
-    req.session.regenerate((err) => {
-      if (err) return reject(err);
-      req.session.user = { id: user.id, username: user.username };
-      req.session.save((saveErr) => (saveErr ? reject(saveErr) : resolve()));
-    });
-  });
 }
 
 // Only failed logins count (status 400 and up). 5 failures per IP in 15 minutes.
@@ -70,8 +60,8 @@ router.post('/register', requireGuest, verifyCsrf, async (req, res) => {
     throw err;
   }
 
-  await logIn(req, { id: Number(userId), username: values.username });
-  res.redirect('/levels');
+  const next = await logIn(req, { id: Number(userId) });
+  res.redirect(next);
 });
 
 router.get('/login', requireGuest, (req, res) => {
@@ -84,17 +74,19 @@ router.post('/login', requireGuest, loginLimiter, verifyCsrf, async (req, res) =
 
   const user = username && username.length <= 20 ? findUser.get(username) : undefined;
   // Always run bcrypt so a wrong username and a wrong password look the same.
-  const ok = await comparePassword(password.slice(0, 72), user ? user.password_hash : DUMMY_HASH);
+  // Google-only accounts have no password ('!'), so they can never match here.
+  const hash = user && user.password_hash !== '!' ? user.password_hash : DUMMY_HASH;
+  const ok = await comparePassword(password.slice(0, 72), hash);
 
-  if (!user || !ok) {
+  if (!user || user.password_hash === '!' || !ok) {
     return res.status(401).render('login', {
       loginError: 'Wrong username or password.',
       values: { username },
     });
   }
 
-  await logIn(req, user);
-  res.redirect('/levels');
+  const next = await logIn(req, user);
+  res.redirect(next);
 });
 
 router.post('/logout', requireLogin, verifyCsrf, (req, res, next) => {

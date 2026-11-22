@@ -45,9 +45,26 @@ CREATE TABLE IF NOT EXISTS level_photos (
   position INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  level_id INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_levels_user ON levels(user_id);
 CREATE INDEX IF NOT EXISTS idx_levels_created ON levels(created_at);
 CREATE INDEX IF NOT EXISTS idx_photos_level ON level_photos(level_id, position);
+CREATE INDEX IF NOT EXISTS idx_comments_level ON comments(level_id, created_at);
 `);
+
+// Older databases do not have these user columns yet. Add them once.
+// A user who signs in with Google has password_hash '!', which never matches a password.
+const userColumns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+for (const [name, type] of [['google_id', 'TEXT'], ['email', 'TEXT'], ['avatar', 'TEXT']]) {
+  if (!userColumns.includes(name)) db.exec(`ALTER TABLE users ADD COLUMN ${name} ${type}`);
+}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google ON users(google_id) WHERE google_id IS NOT NULL');
 
 module.exports = db;

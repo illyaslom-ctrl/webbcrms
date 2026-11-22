@@ -10,18 +10,22 @@
 <body>
   <header class="site-header">
     <div class="container header-row">
-      <a class="site-name" href="<%= user ? '/levels' : '/' %>"><%= siteName %></a>
-      <% if (user) { %>
+      <a class="site-name" href="/levels"><%= siteName %></a>
       <nav class="main-nav" aria-label="Main">
         <a href="/levels">Forum</a>
+        <% if (user) { %>
         <a class="button" href="/levels/new">New level</a>
         <a href="/profile">My levels</a>
+        <a class="nav-account" href="/account"><%- include('avatar', { person: user, size: 'sm' }) %><span><%= user.username %></span></a>
         <form class="inline-form" method="post" action="/logout">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <button class="button button-secondary button-small" type="submit">Log out</button>
         </form>
+        <% } else { %>
+        <a href="/login">Log in</a>
+        <a class="button" href="/register">Create account</a>
+        <% } %>
       </nav>
-      <% } %>
     </div>
   </header>
   <main class="container" id="main">

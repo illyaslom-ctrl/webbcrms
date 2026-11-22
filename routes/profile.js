@@ -13,7 +13,7 @@ const myLevels = db.prepare(`
   ORDER BY l.created_at DESC, l.id DESC`);
 
 router.get('/', (req, res) => {
-  res.render('profile', { levels: myLevels.all(req.session.user.id) });
+  res.render('profile', { levels: myLevels.all(req.user.id) });
 });
 
 module.exports = router;

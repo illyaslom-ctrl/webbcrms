@@ -63,4 +63,45 @@
   <p class="prose"><%= s[1] %></p>
 </section>
 <% } }) %>
+
+<section class="level-section comments" id="comments" aria-labelledby="comments-heading">
+  <h2 id="comments-heading">Comments (<%= comments.length %>)</h2>
+
+  <% if (comments.length === 0) { %>
+  <p class="helper">No comments yet.</p>
+  <% } %>
+
+  <ul class="comment-list">
+    <% comments.forEach(function (c) { %>
+    <li class="comment" id="comment-<%= c.id %>">
+      <%- include('../partials/avatar', { person: c, size: 'md' }) %>
+      <div class="comment-main">
+        <p class="comment-head">
+          <strong><%= c.username %></strong>
+          <span class="comment-date"><%= formatDate(c.created_at) %></span>
+        </p>
+        <p class="prose"><%= c.body %></p>
+        <% if (user && user.id === c.user_id) { %>
+        <form class="inline-form js-confirm" method="post" action="/levels/<%= level.id %>/comments/<%= c.id %>/delete" data-confirm="Delete this comment?">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="link-button" type="submit">Delete</button>
+        </form>
+        <% } %>
+      </div>
+    </li>
+    <% }) %>
+  </ul>
+
+  <% if (user) { %>
+  <form class="comment-form" method="post" action="/levels/<%= level.id %>/comments" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label for="comment-body">Add a comment</label>
+    <textarea id="comment-body" name="body" rows="4" data-max="<%= commentMax %>" aria-describedby="comment-body-count"></textarea>
+    <p class="counter" id="comment-body-count" data-counter-for="comment-body">0 / <%= commentMax %></p>
+    <button class="button" type="submit">Post comment</button>
+  </form>
+  <% } else { %>
+  <p><a href="/login">Log in</a> or <a href="/register">create an account</a> to write a comment.</p>
+  <% } %>
+</section>
 <%- include('../partials/footer') %>

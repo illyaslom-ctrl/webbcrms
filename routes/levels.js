@@ -3,8 +3,10 @@
 const express = require('express');
 const multer = require('multer');
 const db = require('../db');
+const rateLimit = require('express-rate-limit');
+const requireLogin = require('../middleware/requireLogin');
 const { verifyCsrf } = require('../middleware/csrf');
-const { validateLevel } = require('../lib/validate');
+const { validateLevel, validateComment, COMMENT_MAX } = require('../lib/validate');
 const { checkPhoto, checkMusic, saveBuffer, removeFile } = require('../lib/fileCheck');
 
 const router = express.Router();
@@ -66,6 +68,13 @@ const insertPhoto = db.prepare('INSERT INTO level_photos (level_id, filename, po
 const deletePhoto = db.prepare('DELETE FROM level_photos WHERE id = ? AND level_id = ?');
 const setPosition = db.prepare('UPDATE level_photos SET position = ? WHERE id = ?');
 const deleteLevel = db.prepare('DELETE FROM levels WHERE id = ?');
+const getComments = db.prepare(`
+  SELECT c.id, c.body, c.created_at, c.user_id, u.username, u.avatar
+  FROM comments c JOIN users u ON u.id = c.user_id
+  WHERE c.level_id = ? ORDER BY c.created_at, c.id`);
+const getComment = db.prepare('SELECT id, level_id, user_id FROM comments WHERE id = ?');
+const insertComment = db.prepare('INSERT INTO comments (level_id, user_id, body) VALUES (?, ?, ?)');
+const deleteComment = db.prepare('DELETE FROM comments WHERE id = ?');
 
 function notFound(res) {
   return res.status(404).render('404');
@@ -79,7 +88,7 @@ function parseId(value) {
 function loadOwnLevel(req, res) {
   const id = parseId(req.params.id);
   const level = id ? getLevel.get(id) : undefined;
-  if (!level || level.user_id !== req.session.user.id) {
+  if (!level || level.user_id !== req.user.id) {
     notFound(res);
     return null;
   }
@@ -164,11 +173,11 @@ router.get('/', (req, res) => {
 });
 
 // ---------- New ----------
-router.get('/new', (req, res) => {
+router.get('/new', requireLogin, (req, res) => {
   res.render('levels/new', { values: {}, errors: {}, filesNote: null });
 });
 
-router.post('/', handleUpload, verifyCsrf, (req, res) => {
+router.post('/', requireLogin, handleUpload, verifyCsrf, (req, res) => {
   const form = checkForm(req, []);
   if (Object.keys(form.errors).length) {
     return res.status(400).render('levels/new', {
@@ -194,7 +203,7 @@ router.post('/', handleUpload, verifyCsrf, (req, res) => {
     const id = db.transaction(() => {
       const levelId = insertLevel.run({
         ...form.data,
-        user_id: req.session.user.id,
+        user_id: req.user.id,
         music_file: musicFile,
       }).lastInsertRowid;
       photoNames.forEach((name, i) => insertPhoto.run(levelId, name, i));
@@ -217,12 +226,54 @@ router.get('/:id', (req, res) => {
   res.render('levels/show', {
     level,
     photos: getPhotos.all(level.id),
-    isAuthor: level.user_id === req.session.user.id,
+    comments: getComments.all(level.id),
+    commentMax: COMMENT_MAX,
+    isAuthor: Boolean(req.user) && level.user_id === req.user.id,
   });
 });
 
+// ---------- Comments ----------
+const commentLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    req.flash('error', 'You are commenting too fast. Please wait a few minutes.');
+    res.redirect(`/levels/${encodeURIComponent(req.params.id)}#comments`);
+  },
+});
+
+router.post('/:id/comments', requireLogin, commentLimiter, verifyCsrf, (req, res) => {
+  const id = parseId(req.params.id);
+  const level = id ? getLevel.get(id) : undefined;
+  if (!level) return notFound(res);
+
+  const { text, error } = validateComment((req.body || {}).body);
+  if (error) {
+    req.flash('error', error);
+  } else {
+    insertComment.run(level.id, req.user.id, text);
+    req.flash('success', 'Comment posted.');
+  }
+  res.redirect(`/levels/${level.id}#comments`);
+});
+
+// Only the person who wrote a comment can delete it.
+router.post('/:id/comments/:commentId/delete', requireLogin, verifyCsrf, (req, res) => {
+  const id = parseId(req.params.id);
+  const commentId = parseId(req.params.commentId);
+  const comment = commentId ? getComment.get(commentId) : undefined;
+  if (!id || !comment || comment.level_id !== id || comment.user_id !== req.user.id) {
+    return notFound(res);
+  }
+  deleteComment.run(comment.id);
+  req.flash('success', 'Comment deleted.');
+  res.redirect(`/levels/${id}#comments`);
+});
+
 // ---------- Edit ----------
-router.get('/:id/edit', (req, res) => {
+router.get('/:id/edit', requireLogin, (req, res) => {
   const level = loadOwnLevel(req, res);
   if (!level) return;
   res.render('levels/edit', {
@@ -234,7 +285,7 @@ router.get('/:id/edit', (req, res) => {
   });
 });
 
-router.post('/:id/edit', handleUpload, verifyCsrf, (req, res) => {
+router.post('/:id/edit', requireLogin, handleUpload, verifyCsrf, (req, res) => {
   const level = loadOwnLevel(req, res);
   if (!level) return;
   const existing = getPhotos.all(level.id);
@@ -284,7 +335,7 @@ router.post('/:id/edit', handleUpload, verifyCsrf, (req, res) => {
 });
 
 // ---------- Delete ----------
-router.post('/:id/delete', verifyCsrf, (req, res) => {
+router.post('/:id/delete', requireLogin, verifyCsrf, (req, res) => {
   const level = loadOwnLevel(req, res);
   if (!level) return;
   const photos = getPhotos.all(level.id);

@@ -1,0 +1,93 @@
+<%- include('partials/header', { title: 'Account' }) %>
+<section class="form-page account-page">
+  <h1>Account</h1>
+
+  <% if (Object.keys(errors).length) { %>
+  <div class="alert alert-error" role="alert">
+    <p>Please fix the following:</p>
+    <ul>
+      <% Object.values(errors).forEach(function (msg) { %><li><%= msg %></li><% }) %>
+    </ul>
+  </div>
+  <% } %>
+
+  <section class="account-section" aria-labelledby="picture-heading">
+    <h2 id="picture-heading">Profile picture</h2>
+    <div class="account-picture">
+      <%- include('partials/avatar', { person: account, size: 'lg', alt: 'Your profile picture' }) %>
+      <form method="post" action="/account/avatar" enctype="multipart/form-data" novalidate>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label for="avatar">Choose a picture</label>
+        <p class="helper" id="avatar-help">JPG, PNG or WebP, up to 2 MB.</p>
+        <input type="file" id="avatar" name="avatar" accept="image/jpeg,image/png,image/webp" aria-describedby="avatar-help<%= errors.avatar ? ' avatar-error' : '' %>">
+        <%- include('partials/field-error', { name: 'avatar' }) %>
+        <div class="button-row">
+          <button class="button" type="submit">Save picture</button>
+        </div>
+      </form>
+    </div>
+    <% if (account.avatar) { %>
+    <form method="post" action="/account/avatar/remove">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="button button-secondary button-small" type="submit">Remove picture</button>
+    </form>
+    <% } %>
+  </section>
+
+  <section class="account-section" aria-labelledby="nickname-heading">
+    <h2 id="nickname-heading">Nickname</h2>
+    <form method="post" action="/account/nickname" novalidate>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="field">
+        <label for="nickname">Nickname</label>
+        <p class="helper" id="nickname-help">3 to 20 characters: letters, numbers and underscore.<% if (account.hasPassword) { %> This is also the name you log in with.<% } %></p>
+        <input type="text" id="nickname" name="nickname" value="<%= values.nickname %>" autocomplete="username" aria-describedby="nickname-help<%= errors.nickname ? ' nickname-error' : '' %>">
+        <%- include('partials/field-error', { name: 'nickname' }) %>
+      </div>
+      <button class="button" type="submit">Save nickname</button>
+    </form>
+  </section>
+
+  <section class="account-section" aria-labelledby="password-heading">
+    <h2 id="password-heading">Password</h2>
+    <% if (account.hasPassword) { %>
+    <form method="post" action="/account/password" novalidate>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="field">
+        <label for="current_password">Current password</label>
+        <input type="password" id="current_password" name="current_password" autocomplete="current-password"<% if (errors.current_password) { %> aria-describedby="current_password-error"<% } %>>
+        <%- include('partials/field-error', { name: 'current_password' }) %>
+      </div>
+      <div class="field">
+        <label for="password">New password</label>
+        <p class="helper" id="password-help">8 to 72 characters, with at least one letter and one number.</p>
+        <input type="password" id="password" name="password" autocomplete="new-password" aria-describedby="password-help<%= errors.password ? ' password-error' : '' %>">
+        <%- include('partials/field-error', { name: 'password' }) %>
+      </div>
+      <div class="field">
+        <label for="password2">Repeat new password</label>
+        <input type="password" id="password2" name="password2" autocomplete="new-password"<% if (errors.password2) { %> aria-describedby="password2-error"<% } %>>
+        <%- include('partials/field-error', { name: 'password2' }) %>
+      </div>
+      <button class="button" type="submit">Change password</button>
+    </form>
+    <% } else { %>
+    <p>You sign in with Google, so there is no password to change.</p>
+    <% } %>
+  </section>
+
+  <section class="account-section" aria-labelledby="delete-heading">
+    <h2 id="delete-heading">Delete account</h2>
+    <p>This deletes your account, your levels, their photos and music, and your comments. It cannot be undone.</p>
+    <form class="js-confirm" method="post" action="/account/delete" data-confirm="Delete your account? This cannot be undone." novalidate>
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="field">
+        <label for="confirm">Type your nickname (<%= account.username %>) to confirm</label>
+        <input type="text" id="confirm" name="confirm" autocomplete="off"<% if (errors.confirm) { %> aria-describedby="confirm-error"<% } %>>
+        <%- include('partials/field-error', { name: 'confirm' }) %>
+      </div>
+      <button class="button button-secondary button-danger" type="submit">Delete my account</button>
+    </form>
+  </section>
+</section>
+<%- include('partials/footer') %>

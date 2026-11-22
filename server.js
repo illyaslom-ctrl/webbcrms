@@ -11,6 +11,8 @@ const { ensureUploadDir, UPLOAD_DIR } = require('./lib/fileCheck');
 const requireLogin = require('./middleware/requireLogin');
 const { csrfToken } = require('./middleware/csrf');
 const flash = require('./middleware/flash');
+const loadUser = require('./middleware/loadUser');
+const google = require('./lib/google');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const PORT = process.env.PORT || 3000;
@@ -53,7 +55,7 @@ app.use(
   })
 );
 
-// Public files: CSS and JS only. Uploads need a login (see below).
+// Public files: CSS and JS.
 app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
 app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
 
@@ -73,14 +75,15 @@ app.use(
   })
 );
 
+app.use(loadUser);
 app.use(csrfToken);
 app.use(flash);
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 app.use((req, res, next) => {
-  res.locals.user = req.session.user || null;
   res.locals.siteName = 'Backrooms Levels';
+  res.locals.googleEnabled = google.enabled();
   res.locals.errors = {};
   res.locals.values = {};
   res.locals.formatDate = (value) => {
@@ -90,16 +93,17 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use('/uploads', requireLogin, express.static(UPLOAD_DIR, { index: false }));
+// Anyone can read levels, so photos, music and avatars are public too.
+app.use('/uploads', express.static(UPLOAD_DIR, { index: false }));
 
-app.get('/', (req, res) => {
-  if (req.session.user) return res.redirect('/levels');
-  res.render('landing');
-});
+app.get('/', (req, res) => res.redirect('/levels'));
 
 app.use(require('./routes/auth'));
-app.use('/levels', requireLogin, require('./routes/levels'));
+app.use(require('./routes/google'));
+// Reading is public. The routes inside levels.js ask for a login where one is needed.
+app.use('/levels', require('./routes/levels'));
 app.use('/profile', requireLogin, require('./routes/profile'));
+app.use('/account', requireLogin, require('./routes/account'));
 
 app.use((req, res) => {
   res.status(404).render('404');
