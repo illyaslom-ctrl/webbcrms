@@ -13,6 +13,7 @@ const { csrfToken } = require('./middleware/csrf');
 const flash = require('./middleware/flash');
 const loadUser = require('./middleware/loadUser');
 const google = require('./lib/google');
+const i18n = require('./lib/i18n');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const PORT = process.env.PORT || 3000;
@@ -79,18 +80,27 @@ app.use(loadUser);
 app.use(csrfToken);
 app.use(flash);
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+app.use(i18n.middleware);
 
 app.use((req, res, next) => {
   res.locals.siteName = 'Backrooms Levels';
   res.locals.googleEnabled = google.enabled();
   res.locals.errors = {};
   res.locals.values = {};
-  res.locals.formatDate = (value) => {
-    const d = new Date(String(value).replace(' ', 'T') + 'Z');
-    return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-  };
   next();
+});
+
+// Language switch: /lang/ru or /lang/en, then back to the page the person was on.
+app.get('/lang/:code', (req, res) => {
+  if (i18n.LANGS.includes(req.params.code)) {
+    res.cookie('lang', req.params.code, {
+      maxAge: 365 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isProduction,
+    });
+  }
+  res.redirect(i18n.safeNext(req.query.next));
 });
 
 // Anyone can read levels, so photos, music and avatars are public too.

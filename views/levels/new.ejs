@@ -1,7 +1,7 @@
 <%- include('../partials/header', { title: 'New level' }) %>
 <section class="form-page form-wide">
-  <h1>New level</h1>
-  <p class="lead-small">Describe your level. Fields marked with * are required.</p>
+  <h1><%= t('New level') %></h1>
+  <p class="lead-small"><%= t('Describe your level. Fields marked with * are required.') %></p>
   <%- include('../partials/level-form', {
     mode: 'new',
     level: null,

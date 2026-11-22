@@ -1,22 +1,22 @@
 <%- include('partials/header', { title: 'Log in' }) %>
 <section class="form-page">
-  <h1>Log in</h1>
+  <h1><%= t('Log in') %></h1>
   <% if (loginError) { %>
-  <div class="alert alert-error" role="alert"><%= loginError %></div>
+  <div class="alert alert-error" role="alert"><%= t(loginError) %></div>
   <% } %>
   <form method="post" action="/login" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="field">
-      <label for="username">Username</label>
+      <label for="username"><%= t('Username') %></label>
       <input type="text" id="username" name="username" value="<%= values.username %>" autocomplete="username">
     </div>
     <div class="field">
-      <label for="password">Password</label>
+      <label for="password"><%= t('Password') %></label>
       <input type="password" id="password" name="password" autocomplete="current-password">
     </div>
-    <button class="button" type="submit">Log in</button>
+    <button class="button" type="submit"><%= t('Log in') %></button>
   </form>
   <%- include('partials/google-button') %>
-  <p class="form-link">No account? <a href="/register">Create one</a></p>
+  <p class="form-link"><%= t('noaccount.prefix') %> <a href="/register"><%= t('noaccount.link') %></a></p>
 </section>
 <%- include('partials/footer') %>

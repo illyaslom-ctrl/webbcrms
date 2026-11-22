@@ -1,7 +1,7 @@
 <%- include('partials/header', { title: 'Something went wrong' }) %>
 <section class="form-page">
-  <h1>Something went wrong</h1>
-  <p><%= message %></p>
-  <p><a class="button" href="/levels">Back to levels</a></p>
+  <h1><%= t('Something went wrong') %></h1>
+  <p><%= t(message) %></p>
+  <p><a class="button" href="/levels"><%= t('Back to levels') %></a></p>
 </section>
 <%- include('partials/footer') %>

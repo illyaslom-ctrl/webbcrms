@@ -1,7 +1,7 @@
 <%- include('partials/header', { title: 'Page not found' }) %>
 <section class="form-page">
-  <h1>Page not found</h1>
-  <p>We could not find that page.</p>
-  <p><a class="button" href="/levels">Back to levels</a></p>
+  <h1><%= t('Page not found') %></h1>
+  <p><%= t('We could not find that page.') %></p>
+  <p><a class="button" href="/levels"><%= t('Back to levels') %></a></p>
 </section>
 <%- include('partials/footer') %>

@@ -20,16 +20,17 @@
   var photoCount = document.getElementById('photos-count');
   var photoWarning = document.getElementById('photos-warning');
   if (photos && photoCount) {
+    var template = photoCount.getAttribute('data-template') || '{n} / 10';
     photos.addEventListener('change', function () {
       var count = photos.files.length;
       if (count > 10) {
         photos.value = '';
-        photoCount.textContent = '0 of 10 photos selected';
+        photoCount.textContent = template.replace('{n}', '0');
         if (photoWarning) photoWarning.hidden = false;
         return;
       }
       if (photoWarning) photoWarning.hidden = true;
-      photoCount.textContent = count + ' of 10 photos selected';
+      photoCount.textContent = template.replace('{n}', String(count));
     });
   }
 

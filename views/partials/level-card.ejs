@@ -1,13 +1,13 @@
 <article class="card">
   <a class="card-link" href="/levels/<%= level.id %>">
     <% if (level.cover) { %>
-    <img class="card-cover" src="/uploads/<%= level.cover %>" alt="<%= level.name %> photo 1" loading="lazy">
+    <img class="card-cover" src="/uploads/<%= level.cover %>" alt="<%= t('{name} photo {n}', { name: level.name, n: 1 }) %>" loading="lazy">
     <% } else { %>
-    <div class="card-cover no-photo">No photo</div>
+    <div class="card-cover no-photo"><%= t('No photo') %></div>
     <% } %>
     <h2 class="card-title"><%= level.name %></h2>
   </a>
-  <% if (level.level_number !== null) { %><p class="card-meta">Level <%= level.level_number %></p><% } %>
-  <p class="card-meta">by <%= level.username %>, <%= formatDate(level.created_at) %></p>
-  <% if (level.danger_rating !== null) { %><p class="card-meta">Danger: <%= level.danger_rating %> / 5</p><% } %>
+  <% if (level.level_number !== null) { %><p class="card-meta"><%= t('Level {n}', { n: level.level_number }) %></p><% } %>
+  <p class="card-meta"><%= t('by {name}, {date}', { name: level.username, date: formatDate(level.created_at) }) %></p>
+  <% if (level.danger_rating !== null) { %><p class="card-meta"><%= t('Danger: {n} / 5', { n: level.danger_rating }) %></p><% } %>
 </article>

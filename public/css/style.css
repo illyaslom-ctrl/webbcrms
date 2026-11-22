@@ -57,6 +57,9 @@ a:hover { color: var(--muted); }
 .main-nav a:not(.button) { text-decoration: none; padding: 8px 0; }
 .main-nav a:not(.button):hover { text-decoration: underline; }
 .inline-form { display: inline; margin: 0; }
+.lang-switch { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; color: var(--muted); }
+.main-nav .lang-switch a { text-decoration: none; padding: 8px 2px; }
+.main-nav .lang-switch a.is-current { font-weight: 700; text-decoration: underline; }
 .site-footer { border-top: 1px solid var(--border); padding: 16px 0; color: var(--muted); font-size: 14px; }
 
 /* ---------- Buttons ---------- */

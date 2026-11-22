@@ -22,9 +22,9 @@
 %>
 <% if (errorMessages.length) { %>
 <div class="alert alert-error" role="alert">
-  <p>Please fix the following:</p>
+  <p><%= t('Please fix the following:') %></p>
   <ul>
-    <% errorMessages.forEach(function (msg) { %><li><%= msg %></li><% }) %>
+    <% errorMessages.forEach(function (msg) { %><li><%= t(msg) %></li><% }) %>
   </ul>
 </div>
 <% } %>
@@ -33,13 +33,13 @@
 
   <% fields.forEach(function (f) { %>
   <div class="field">
-    <label for="<%= f.name %>"><%= f.label %><% if (f.required) { %> <span aria-hidden="true">*</span><% } %></label>
-    <p class="helper" id="<%= f.name %>-help"><%= f.help %></p>
+    <label for="<%= f.name %>"><%= t(f.label) %><% if (f.required) { %> <span aria-hidden="true">*</span><% } %></label>
+    <p class="helper" id="<%= f.name %>-help"><%= t(f.help) %></p>
     <% if (f.type === 'textarea') { %>
     <textarea id="<%= f.name %>" name="<%= f.name %>" rows="<%= f.rows %>" data-max="<%= f.max %>"<% if (f.required) { %> aria-required="true"<% } %> aria-describedby="<%= describedBy(f) %>"><%= values[f.name] || '' %></textarea>
     <% } else if (f.type === 'select') { %>
     <select id="<%= f.name %>" name="<%= f.name %>" aria-describedby="<%= describedBy(f) %>">
-      <option value="">Not set</option>
+      <option value=""><%= t('Not set') %></option>
       <% [1, 2, 3, 4, 5].forEach(function (n) { %>
       <option value="<%= n %>"<%= String(values[f.name]) === String(n) ? ' selected' : '' %>><%= n %></option>
       <% }) %>
@@ -57,40 +57,40 @@
   <% }) %>
 
   <div class="field">
-    <label for="music_file">Level music (upload)</label>
-    <p class="helper" id="music_file-help">Upload an audio file: MP3, OGG or WAV, up to 15 MB. Optional.</p>
+    <label for="music_file"><%= t('Level music (upload)') %></label>
+    <p class="helper" id="music_file-help"><%= t('Upload an audio file: MP3, OGG or WAV, up to 15 MB. Optional.') %></p>
     <input type="file" id="music_file" name="music_file" accept=".mp3,.ogg,.wav" aria-describedby="music_file-help<%= errors.music_file ? ' music_file-error' : '' %>">
     <% if (mode === 'edit' && level.music_file) { %>
-    <p class="helper">A music file is already saved. Choosing a new file replaces it.</p>
+    <p class="helper"><%= t('A music file is already saved. Choosing a new file replaces it.') %></p>
     <% } %>
     <%- include('field-error', { name: 'music_file' }) %>
   </div>
 
   <div class="field">
-    <label for="photos">Photos</label>
-    <p class="helper" id="photos-help">Up to 10 photos. Images only: JPG, PNG or WebP, up to 8 MB each. No videos. The first photo is the cover.</p>
+    <label for="photos"><%= t('Photos') %></label>
+    <p class="helper" id="photos-help"><%= t('Up to 10 photos. Images only: JPG, PNG or WebP, up to 8 MB each. No videos. The first photo is the cover.') %></p>
     <% if (mode === 'edit') { %>
-    <p class="helper">You can have at most 10 photos in total.</p>
+    <p class="helper"><%= t('You can have at most 10 photos in total.') %></p>
     <% if (photos.length) { %>
     <ul class="current-photos">
       <% photos.forEach(function (p, i) { %>
       <li>
-        <img src="/uploads/<%= p.filename %>" alt="<%= level.name %> photo <%= i + 1 %>">
-        <label class="checkbox"><input type="checkbox" name="remove_photos" value="<%= p.id %>"> Remove</label>
+        <img src="/uploads/<%= p.filename %>" alt="<%= t('{name} photo {n}', { name: level.name, n: i + 1 }) %>">
+        <label class="checkbox"><input type="checkbox" name="remove_photos" value="<%= p.id %>"> <%= t('Remove') %></label>
       </li>
       <% }) %>
     </ul>
     <% } %>
     <% } %>
     <input type="file" id="photos" name="photos" multiple accept="image/jpeg,image/png,image/webp" aria-describedby="photos-help photos-count<%= errors.photos ? ' photos-error' : '' %>">
-    <p class="counter-left" id="photos-count" aria-live="polite">0 of 10 photos selected</p>
-    <p class="field-error" id="photos-warning" role="alert" hidden>You can upload up to 10 photos.</p>
-    <% if (filesNote) { %><p class="helper"><%= filesNote %></p><% } %>
+    <p class="counter-left" id="photos-count" aria-live="polite" data-template="<%= t('{n} of 10 photos selected', { n: '{n}' }) %>"><%= t('{n} of 10 photos selected', { n: 0 }) %></p>
+    <p class="field-error" id="photos-warning" role="alert" hidden><%= t('You can upload up to 10 photos.') %></p>
+    <% if (filesNote) { %><p class="helper"><%= t(filesNote) %></p><% } %>
     <%- include('field-error', { name: 'photos' }) %>
   </div>
 
   <div class="button-row">
-    <button class="button" type="submit"><%= submitLabel %></button>
-    <a class="button button-secondary" href="<%= cancelUrl %>">Cancel</a>
+    <button class="button" type="submit"><%= t(submitLabel) %></button>
+    <a class="button button-secondary" href="<%= cancelUrl %>"><%= t('Cancel') %></a>
   </div>
 </form>

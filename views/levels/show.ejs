@@ -1,46 +1,46 @@
 <%- include('../partials/header', { title: level.name }) %>
-<p><a class="back-link" href="/levels">Back to levels</a></p>
+<p><a class="back-link" href="/levels"><%= t('Back to levels') %></a></p>
 
 <div class="level-head">
   <div>
     <h1><%= level.name %></h1>
     <p class="level-meta">
-      <% if (level.level_number !== null) { %><span>Level <%= level.level_number %></span><% } %>
-      <span>by <%= level.username %>, <%= formatDate(level.created_at) %></span>
-      <% if (level.danger_rating !== null) { %><span class="badge">Danger: <%= level.danger_rating %> / 5</span><% } %>
+      <% if (level.level_number !== null) { %><span><%= t('Level {n}', { n: level.level_number }) %></span><% } %>
+      <span><%= t('by {name}, {date}', { name: level.username, date: formatDate(level.created_at) }) %></span>
+      <% if (level.danger_rating !== null) { %><span class="badge"><%= t('Danger: {n} / 5', { n: level.danger_rating }) %></span><% } %>
     </p>
   </div>
   <% if (isAuthor) { %>
   <div class="author-actions">
-    <a class="button button-secondary" href="/levels/<%= level.id %>/edit">Edit</a>
-    <form class="inline-form js-confirm" method="post" action="/levels/<%= level.id %>/delete" data-confirm="Delete this level? This cannot be undone.">
+    <a class="button button-secondary" href="/levels/<%= level.id %>/edit"><%= t('Edit') %></a>
+    <form class="inline-form js-confirm" method="post" action="/levels/<%= level.id %>/delete" data-confirm="<%= t('Delete this level? This cannot be undone.') %>">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <button class="button button-secondary button-danger" type="submit">Delete</button>
+      <button class="button button-secondary button-danger" type="submit"><%= t('Delete') %></button>
     </form>
   </div>
   <% } %>
 </div>
 
-<section class="gallery" aria-label="Photos">
+<section class="gallery" aria-label="<%= t('Photos') %>">
   <% if (photos.length) { %>
-  <img id="gallery-main" class="gallery-main" src="/uploads/<%= photos[0].filename %>" alt="<%= level.name %> photo 1">
+  <img id="gallery-main" class="gallery-main" src="/uploads/<%= photos[0].filename %>" alt="<%= t('{name} photo {n}', { name: level.name, n: 1 }) %>">
   <% if (photos.length > 1) { %>
   <div class="thumbs">
     <% photos.forEach(function (p, i) { %>
-    <button class="thumb" type="button" data-src="/uploads/<%= p.filename %>" data-alt="<%= level.name %> photo <%= i + 1 %>">
-      <img src="/uploads/<%= p.filename %>" alt="<%= level.name %> photo <%= i + 1 %>" loading="lazy">
+    <button class="thumb" type="button" data-src="/uploads/<%= p.filename %>" data-alt="<%= t('{name} photo {n}', { name: level.name, n: i + 1 }) %>">
+      <img src="/uploads/<%= p.filename %>" alt="<%= t('{name} photo {n}', { name: level.name, n: i + 1 }) %>" loading="lazy">
     </button>
     <% }) %>
   </div>
   <% } %>
   <% } else { %>
-  <div class="gallery-main no-photo">No photo</div>
+  <div class="gallery-main no-photo"><%= t('No photo') %></div>
   <% } %>
 </section>
 
 <% if (level.music_name || level.music_file) { %>
 <section class="level-section">
-  <h2>Music</h2>
+  <h2><%= t('Music') %></h2>
   <% if (level.music_name) { %><p><%= level.music_name %></p><% } %>
   <% if (level.music_file) { %><audio controls src="/uploads/<%= level.music_file %>"></audio><% } %>
 </section>
@@ -59,16 +59,16 @@
 %>
 <% sections.forEach(function (s) { if (s[1]) { %>
 <section class="level-section">
-  <h2><%= s[0] %></h2>
+  <h2><%= t(s[0]) %></h2>
   <p class="prose"><%= s[1] %></p>
 </section>
 <% } }) %>
 
 <section class="level-section comments" id="comments" aria-labelledby="comments-heading">
-  <h2 id="comments-heading">Comments (<%= comments.length %>)</h2>
+  <h2 id="comments-heading"><%= t('Comments ({n})', { n: comments.length }) %></h2>
 
   <% if (comments.length === 0) { %>
-  <p class="helper">No comments yet.</p>
+  <p class="helper"><%= t('No comments yet.') %></p>
   <% } %>
 
   <ul class="comment-list">
@@ -82,9 +82,9 @@
         </p>
         <p class="prose"><%= c.body %></p>
         <% if (user && user.id === c.user_id) { %>
-        <form class="inline-form js-confirm" method="post" action="/levels/<%= level.id %>/comments/<%= c.id %>/delete" data-confirm="Delete this comment?">
+        <form class="inline-form js-confirm" method="post" action="/levels/<%= level.id %>/comments/<%= c.id %>/delete" data-confirm="<%= t('Delete this comment?') %>">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="link-button" type="submit">Delete</button>
+          <button class="link-button" type="submit"><%= t('Delete') %></button>
         </form>
         <% } %>
       </div>
@@ -95,13 +95,13 @@
   <% if (user) { %>
   <form class="comment-form" method="post" action="/levels/<%= level.id %>/comments" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-    <label for="comment-body">Add a comment</label>
+    <label for="comment-body"><%= t('Add a comment') %></label>
     <textarea id="comment-body" name="body" rows="4" data-max="<%= commentMax %>" aria-describedby="comment-body-count"></textarea>
     <p class="counter" id="comment-body-count" data-counter-for="comment-body">0 / <%= commentMax %></p>
-    <button class="button" type="submit">Post comment</button>
+    <button class="button" type="submit"><%= t('Post comment') %></button>
   </form>
   <% } else { %>
-  <p><a href="/login">Log in</a> or <a href="/register">create an account</a> to write a comment.</p>
+  <p><a href="/login"><%= t('comment.login_prefix') %></a> <%= t('comment.or') %> <a href="/register"><%= t('comment.register') %></a><%= lang === 'ru' ? '' : ' ' %><%= t('comment.login_suffix') %></p>
   <% } %>
 </section>
 <%- include('../partials/footer') %>

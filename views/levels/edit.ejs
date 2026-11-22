@@ -1,7 +1,7 @@
 <%- include('../partials/header', { title: 'Edit level' }) %>
 <section class="form-page form-wide">
-  <h1>Edit level</h1>
-  <p class="lead-small">Describe your level. Fields marked with * are required.</p>
+  <h1><%= t('Edit level') %></h1>
+  <p class="lead-small"><%= t('Describe your level. Fields marked with * are required.') %></p>
   <%- include('../partials/level-form', {
     mode: 'edit',
     action: '/levels/' + level.id + '/edit',

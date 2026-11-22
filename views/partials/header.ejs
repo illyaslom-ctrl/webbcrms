@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="<%= lang %>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><%= title %> | <%= siteName %></title>
+  <title><%= t(title) %> | <%= siteName %></title>
   <link rel="stylesheet" href="/css/style.css">
   <script src="/js/app.js" defer></script>
 </head>
@@ -11,20 +11,25 @@
   <header class="site-header">
     <div class="container header-row">
       <a class="site-name" href="/levels"><%= siteName %></a>
-      <nav class="main-nav" aria-label="Main">
-        <a href="/levels">Forum</a>
+      <nav class="main-nav" aria-label="<%= t('Main') %>">
+        <a href="/levels"><%= t('Forum') %></a>
         <% if (user) { %>
-        <a class="button" href="/levels/new">New level</a>
-        <a href="/profile">My levels</a>
+        <a class="button" href="/levels/new"><%= t('New level') %></a>
+        <a href="/profile"><%= t('My levels') %></a>
         <a class="nav-account" href="/account"><%- include('avatar', { person: user, size: 'sm' }) %><span><%= user.username %></span></a>
         <form class="inline-form" method="post" action="/logout">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="button button-secondary button-small" type="submit">Log out</button>
+          <button class="button button-secondary button-small" type="submit"><%= t('Log out') %></button>
         </form>
         <% } else { %>
-        <a href="/login">Log in</a>
-        <a class="button" href="/register">Create account</a>
+        <a href="/login"><%= t('Log in') %></a>
+        <a class="button" href="/register"><%= t('Create account') %></a>
         <% } %>
+        <span class="lang-switch" role="group" aria-label="<%= t('Language') %>">
+          <a href="/lang/en?next=<%= encodeURIComponent(currentUrl) %>" lang="en" hreflang="en"<%- lang === 'en' ? ' class="is-current" aria-current="true"' : '' %>>EN</a>
+          <span aria-hidden="true">/</span>
+          <a href="/lang/ru?next=<%= encodeURIComponent(currentUrl) %>" lang="ru" hreflang="ru"<%- lang === 'ru' ? ' class="is-current" aria-current="true"' : '' %>>RU</a>
+        </span>
       </nav>
     </div>
   </header>
