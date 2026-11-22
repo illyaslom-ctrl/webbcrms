@@ -1,0 +1,13 @@
+<%- include('partials/header', { title: 'My levels' }) %>
+<h1>My levels</h1>
+<% if (levels.length === 0) { %>
+<div class="empty">
+  <p>You have not published any levels yet.</p>
+  <a class="button" href="/levels/new">New level</a>
+</div>
+<% } else { %>
+<div class="grid">
+  <% levels.forEach(function (level) { %><%- include('partials/level-card', { level: level }) %><% }) %>
+</div>
+<% } %>
+<%- include('partials/footer') %>

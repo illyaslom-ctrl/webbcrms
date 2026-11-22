@@ -1,0 +1,66 @@
+<%- include('../partials/header', { title: level.name }) %>
+<p><a class="back-link" href="/levels">Back to levels</a></p>
+
+<div class="level-head">
+  <div>
+    <h1><%= level.name %></h1>
+    <p class="level-meta">
+      <% if (level.level_number !== null) { %><span>Level <%= level.level_number %></span><% } %>
+      <span>by <%= level.username %>, <%= formatDate(level.created_at) %></span>
+      <% if (level.danger_rating !== null) { %><span class="badge">Danger: <%= level.danger_rating %> / 5</span><% } %>
+    </p>
+  </div>
+  <% if (isAuthor) { %>
+  <div class="author-actions">
+    <a class="button button-secondary" href="/levels/<%= level.id %>/edit">Edit</a>
+    <form class="inline-form js-confirm" method="post" action="/levels/<%= level.id %>/delete" data-confirm="Delete this level? This cannot be undone.">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="button button-secondary button-danger" type="submit">Delete</button>
+    </form>
+  </div>
+  <% } %>
+</div>
+
+<section class="gallery" aria-label="Photos">
+  <% if (photos.length) { %>
+  <img id="gallery-main" class="gallery-main" src="/uploads/<%= photos[0].filename %>" alt="<%= level.name %> photo 1">
+  <% if (photos.length > 1) { %>
+  <div class="thumbs">
+    <% photos.forEach(function (p, i) { %>
+    <button class="thumb" type="button" data-src="/uploads/<%= p.filename %>" data-alt="<%= level.name %> photo <%= i + 1 %>">
+      <img src="/uploads/<%= p.filename %>" alt="<%= level.name %> photo <%= i + 1 %>" loading="lazy">
+    </button>
+    <% }) %>
+  </div>
+  <% } %>
+  <% } else { %>
+  <div class="gallery-main no-photo">No photo</div>
+  <% } %>
+</section>
+
+<% if (level.music_name || level.music_file) { %>
+<section class="level-section">
+  <h2>Music</h2>
+  <% if (level.music_name) { %><p><%= level.music_name %></p><% } %>
+  <% if (level.music_file) { %><audio controls src="/uploads/<%= level.music_file %>"></audio><% } %>
+</section>
+<% } %>
+
+<%
+  const sections = [
+    ['Description', level.description],
+    ['Entities', level.entities],
+    ['Entries', level.entries],
+    ['Exits', level.exits],
+    ['Features', level.features],
+    ['Lovely places', level.lovely_places],
+    ['Danger areas', level.danger_areas]
+  ];
+%>
+<% sections.forEach(function (s) { if (s[1]) { %>
+<section class="level-section">
+  <h2><%= s[0] %></h2>
+  <p class="prose"><%= s[1] %></p>
+</section>
+<% } }) %>
+<%- include('../partials/footer') %>

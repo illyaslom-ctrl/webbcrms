@@ -1,0 +1,35 @@
+<%- include('partials/header', { title: 'Create account' }) %>
+<section class="form-page">
+  <h1>Create account</h1>
+  <% if (Object.keys(errors).length) { %>
+  <div class="alert alert-error" role="alert">
+    <p>Please fix the following:</p>
+    <ul>
+      <% Object.values(errors).forEach(function (msg) { %><li><%= msg %></li><% }) %>
+    </ul>
+  </div>
+  <% } %>
+  <form method="post" action="/register" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="field">
+      <label for="username">Username</label>
+      <p class="helper" id="username-help">3 to 20 characters: letters, numbers and underscore.</p>
+      <input type="text" id="username" name="username" value="<%= values.username %>" autocomplete="username" aria-describedby="username-help<%= errors.username ? ' username-error' : '' %>">
+      <%- include('partials/field-error', { name: 'username' }) %>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <p class="helper" id="password-help">8 to 72 characters, with at least one letter and one number.</p>
+      <input type="password" id="password" name="password" autocomplete="new-password" aria-describedby="password-help<%= errors.password ? ' password-error' : '' %>">
+      <%- include('partials/field-error', { name: 'password' }) %>
+    </div>
+    <div class="field">
+      <label for="password2">Repeat password</label>
+      <input type="password" id="password2" name="password2" autocomplete="new-password"<% if (errors.password2) { %> aria-describedby="password2-error"<% } %>>
+      <%- include('partials/field-error', { name: 'password2' }) %>
+    </div>
+    <button class="button" type="submit">Create account</button>
+  </form>
+  <p class="form-link">Already have an account? <a href="/login">Log in</a></p>
+</section>
+<%- include('partials/footer') %>

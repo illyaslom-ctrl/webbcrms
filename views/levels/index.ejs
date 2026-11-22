@@ -1,0 +1,39 @@
+<%- include('../partials/header', { title: 'Levels' }) %>
+<h1>Levels</h1>
+<div class="toolbar">
+  <form class="search-form" method="get" action="/levels" role="search">
+    <label class="visually-hidden" for="q">Search by level name</label>
+    <input type="search" id="q" name="q" value="<%= q %>" placeholder="Search by level name">
+    <button class="button" type="submit">Search</button>
+  </form>
+  <a class="button" href="/levels/new">New level</a>
+</div>
+<% if (total === 0) { %>
+<div class="empty">
+  <% if (q) { %>
+  <p>Nothing found for <%= q %>.</p>
+  <% } else { %>
+  <p>No levels yet. Be the first to publish one.</p>
+  <a class="button" href="/levels/new">New level</a>
+  <% } %>
+</div>
+<% } else { %>
+<div class="grid">
+  <% levels.forEach(function (level) { %><%- include('../partials/level-card', { level: level }) %><% }) %>
+</div>
+<% const qs = q ? '&q=' + encodeURIComponent(q) : ''; %>
+<nav class="pagination" aria-label="Pages">
+  <% if (page > 1) { %>
+  <a class="button button-secondary" href="/levels?page=<%= page - 1 %><%= qs %>">Previous</a>
+  <% } else { %>
+  <span class="button button-secondary is-disabled" aria-disabled="true">Previous</span>
+  <% } %>
+  <span class="page-text">Page <%= page %> of <%= pages %></span>
+  <% if (page < pages) { %>
+  <a class="button button-secondary" href="/levels?page=<%= page + 1 %><%= qs %>">Next</a>
+  <% } else { %>
+  <span class="button button-secondary is-disabled" aria-disabled="true">Next</span>
+  <% } %>
+</nav>
+<% } %>
+<%- include('../partials/footer') %>

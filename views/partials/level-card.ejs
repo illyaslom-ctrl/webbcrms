@@ -1,0 +1,13 @@
+<article class="card">
+  <a class="card-link" href="/levels/<%= level.id %>">
+    <% if (level.cover) { %>
+    <img class="card-cover" src="/uploads/<%= level.cover %>" alt="<%= level.name %> photo 1" loading="lazy">
+    <% } else { %>
+    <div class="card-cover no-photo">No photo</div>
+    <% } %>
+    <h2 class="card-title"><%= level.name %></h2>
+  </a>
+  <% if (level.level_number !== null) { %><p class="card-meta">Level <%= level.level_number %></p><% } %>
+  <p class="card-meta">by <%= level.username %>, <%= formatDate(level.created_at) %></p>
+  <% if (level.danger_rating !== null) { %><p class="card-meta">Danger: <%= level.danger_rating %> / 5</p><% } %>
+</article>

@@ -1,0 +1,96 @@
+<%
+  const fields = [
+    { name: 'name', label: 'Name', required: true, type: 'text', max: 80, help: 'The name of your level.' },
+    { name: 'level_number', label: 'Level number', type: 'number', help: 'For example 0, 1, 37. Leave empty if your level has no number.' },
+    { name: 'danger_rating', label: 'Danger rating', type: 'select', help: '1 means calm, 5 means very dangerous.' },
+    { name: 'description', label: 'Description', required: true, type: 'textarea', max: 5000, rows: 8, help: 'Describe your level in your own words: what it looks like, what it feels like.' },
+    { name: 'entities', label: 'Entities', required: true, type: 'textarea', max: 2000, rows: 5, help: 'Creatures, beings or things that live in or move through the level.' },
+    { name: 'entries', label: 'Entries', required: true, type: 'textarea', max: 2000, rows: 5, help: 'How a person can get into this level.' },
+    { name: 'exits', label: 'Exits', required: true, type: 'textarea', max: 2000, rows: 5, help: 'How a person can leave this level.' },
+    { name: 'features', label: 'Features', required: true, type: 'textarea', max: 3000, rows: 6, help: 'Rooms, materials, lights, sounds, smells, rules of the level.' },
+    { name: 'lovely_places', label: 'Lovely places', type: 'textarea', max: 2000, rows: 4, help: 'Places that are safe or pleasant to rest in.' },
+    { name: 'danger_areas', label: 'Danger areas', type: 'textarea', max: 2000, rows: 4, help: 'Places to avoid and why.' },
+    { name: 'music_name', label: 'Level music (name)', type: 'text', max: 120, help: 'Name of a song or track that fits the level. Optional.' }
+  ];
+  const errorMessages = Object.values(errors);
+  function describedBy(f) {
+    const ids = [f.name + '-help'];
+    if (errors[f.name]) ids.push(f.name + '-error');
+    if (f.max) ids.push(f.name + '-count');
+    return ids.join(' ');
+  }
+%>
+<% if (errorMessages.length) { %>
+<div class="alert alert-error" role="alert">
+  <p>Please fix the following:</p>
+  <ul>
+    <% errorMessages.forEach(function (msg) { %><li><%= msg %></li><% }) %>
+  </ul>
+</div>
+<% } %>
+<form class="level-form" method="post" action="<%= action %>" enctype="multipart/form-data" novalidate>
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+  <% fields.forEach(function (f) { %>
+  <div class="field">
+    <label for="<%= f.name %>"><%= f.label %><% if (f.required) { %> <span aria-hidden="true">*</span><% } %></label>
+    <p class="helper" id="<%= f.name %>-help"><%= f.help %></p>
+    <% if (f.type === 'textarea') { %>
+    <textarea id="<%= f.name %>" name="<%= f.name %>" rows="<%= f.rows %>" data-max="<%= f.max %>"<% if (f.required) { %> aria-required="true"<% } %> aria-describedby="<%= describedBy(f) %>"><%= values[f.name] || '' %></textarea>
+    <% } else if (f.type === 'select') { %>
+    <select id="<%= f.name %>" name="<%= f.name %>" aria-describedby="<%= describedBy(f) %>">
+      <option value="">Not set</option>
+      <% [1, 2, 3, 4, 5].forEach(function (n) { %>
+      <option value="<%= n %>"<%= String(values[f.name]) === String(n) ? ' selected' : '' %>><%= n %></option>
+      <% }) %>
+    </select>
+    <% } else if (f.type === 'number') { %>
+    <input type="number" id="<%= f.name %>" name="<%= f.name %>" min="0" max="9999" step="1" inputmode="numeric" value="<%= values[f.name] || '' %>" aria-describedby="<%= describedBy(f) %>">
+    <% } else { %>
+    <input type="text" id="<%= f.name %>" name="<%= f.name %>" data-max="<%= f.max %>" value="<%= values[f.name] || '' %>"<% if (f.required) { %> aria-required="true"<% } %> aria-describedby="<%= describedBy(f) %>">
+    <% } %>
+    <% if (f.max) { %>
+    <p class="counter" id="<%= f.name %>-count" data-counter-for="<%= f.name %>"><%= (values[f.name] || '').length %> / <%= f.max %></p>
+    <% } %>
+    <%- include('field-error', { name: f.name }) %>
+  </div>
+  <% }) %>
+
+  <div class="field">
+    <label for="music_file">Level music (upload)</label>
+    <p class="helper" id="music_file-help">Upload an audio file: MP3, OGG or WAV, up to 15 MB. Optional.</p>
+    <input type="file" id="music_file" name="music_file" accept=".mp3,.ogg,.wav" aria-describedby="music_file-help<%= errors.music_file ? ' music_file-error' : '' %>">
+    <% if (mode === 'edit' && level.music_file) { %>
+    <p class="helper">A music file is already saved. Choosing a new file replaces it.</p>
+    <% } %>
+    <%- include('field-error', { name: 'music_file' }) %>
+  </div>
+
+  <div class="field">
+    <label for="photos">Photos</label>
+    <p class="helper" id="photos-help">Up to 10 photos. Images only: JPG, PNG or WebP, up to 8 MB each. No videos. The first photo is the cover.</p>
+    <% if (mode === 'edit') { %>
+    <p class="helper">You can have at most 10 photos in total.</p>
+    <% if (photos.length) { %>
+    <ul class="current-photos">
+      <% photos.forEach(function (p, i) { %>
+      <li>
+        <img src="/uploads/<%= p.filename %>" alt="<%= level.name %> photo <%= i + 1 %>">
+        <label class="checkbox"><input type="checkbox" name="remove_photos" value="<%= p.id %>"> Remove</label>
+      </li>
+      <% }) %>
+    </ul>
+    <% } %>
+    <% } %>
+    <input type="file" id="photos" name="photos" multiple accept="image/jpeg,image/png,image/webp" aria-describedby="photos-help photos-count<%= errors.photos ? ' photos-error' : '' %>">
+    <p class="counter-left" id="photos-count" aria-live="polite">0 of 10 photos selected</p>
+    <p class="field-error" id="photos-warning" role="alert" hidden>You can upload up to 10 photos.</p>
+    <% if (filesNote) { %><p class="helper"><%= filesNote %></p><% } %>
+    <%- include('field-error', { name: 'photos' }) %>
+  </div>
+
+  <div class="button-row">
+    <button class="button" type="submit"><%= submitLabel %></button>
+    <a class="button button-secondary" href="<%= cancelUrl %>">Cancel</a>
+  </div>
+</form>

@@ -1,0 +1,21 @@
+<%- include('partials/header', { title: 'Log in' }) %>
+<section class="form-page">
+  <h1>Log in</h1>
+  <% if (loginError) { %>
+  <div class="alert alert-error" role="alert"><%= loginError %></div>
+  <% } %>
+  <form method="post" action="/login" novalidate>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="field">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" value="<%= values.username %>" autocomplete="username">
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password">
+    </div>
+    <button class="button" type="submit">Log in</button>
+  </form>
+  <p class="form-link">No account? <a href="/register">Create one</a></p>
+</section>
+<%- include('partials/footer') %>

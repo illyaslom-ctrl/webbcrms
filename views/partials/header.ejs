@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> | <%= siteName %></title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-row">
+      <a class="site-name" href="<%= user ? '/levels' : '/' %>"><%= siteName %></a>
+      <% if (user) { %>
+      <nav class="main-nav" aria-label="Main">
+        <a href="/levels">Forum</a>
+        <a class="button" href="/levels/new">New level</a>
+        <a href="/profile">My levels</a>
+        <form class="inline-form" method="post" action="/logout">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="button button-secondary button-small" type="submit">Log out</button>
+        </form>
+      </nav>
+      <% } %>
+    </div>
+  </header>
+  <main class="container" id="main">
+    <%- include('flash') %>
