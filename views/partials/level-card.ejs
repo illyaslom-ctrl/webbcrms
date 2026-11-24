@@ -1,7 +1,7 @@
 <article class="card">
   <a class="card-link" href="/levels/<%= level.id %>">
     <% if (level.cover) { %>
-    <img class="card-cover" src="/uploads/<%= level.cover %>" alt="<%= t('{name} photo {n}', { name: level.name, n: 1 }) %>" loading="lazy">
+    <img class="card-cover" src="<%= fileUrl(level.cover) %>" alt="<%= t('{name} photo {n}', { name: level.name, n: 1 }) %>" loading="lazy">
     <% } else { %>
     <div class="card-cover no-photo"><%= t('No photo') %></div>
     <% } %>

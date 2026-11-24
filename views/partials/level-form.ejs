@@ -75,7 +75,7 @@
     <ul class="current-photos">
       <% photos.forEach(function (p, i) { %>
       <li>
-        <img src="/uploads/<%= p.filename %>" alt="<%= t('{name} photo {n}', { name: level.name, n: i + 1 }) %>">
+        <img src="<%= fileUrl(p.filename) %>" alt="<%= t('{name} photo {n}', { name: level.name, n: i + 1 }) %>">
         <label class="checkbox"><input type="checkbox" name="remove_photos" value="<%= p.id %>"> <%= t('Remove') %></label>
       </li>
       <% }) %>

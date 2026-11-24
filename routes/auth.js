@@ -11,8 +11,7 @@ const { logIn } = require('../lib/session');
 
 const router = express.Router();
 
-const findUser = db.prepare('SELECT id, username, password_hash FROM users WHERE username = ?');
-const insertUser = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)');
+const findUser = (username) => db.get('SELECT id, username, password_hash FROM users WHERE username = ?', [username]);
 
 function requireGuest(req, res, next) {
   if (req.user) return res.redirect('/levels');
@@ -41,7 +40,7 @@ router.get('/register', requireGuest, (req, res) => {
 router.post('/register', requireGuest, verifyCsrf, async (req, res) => {
   const { errors, values } = validateAccount(req.body || {});
 
-  if (!errors.username && findUser.get(values.username)) {
+  if (!errors.username && (await findUser(values.username))) {
     errors.username = 'Username is already taken.';
   }
   if (Object.keys(errors).length) {
@@ -51,9 +50,10 @@ router.post('/register', requireGuest, verifyCsrf, async (req, res) => {
   const hash = await hashPassword(req.body.password);
   let userId;
   try {
-    userId = insertUser.run(values.username, hash).lastInsertRowid;
+    userId = (await db.run('INSERT INTO users (username, password_hash) VALUES (?, ?)', [values.username, hash]))
+      .lastInsertRowid;
   } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (db.isUniqueError(err)) {
       errors.username = 'Username is already taken.';
       return res.status(400).render('register', { errors, values });
     }
@@ -72,7 +72,7 @@ router.post('/login', requireGuest, loginLimiter, verifyCsrf, async (req, res) =
   const username = typeof req.body.username === 'string' ? req.body.username.trim() : '';
   const password = typeof req.body.password === 'string' ? req.body.password : '';
 
-  const user = username && username.length <= 20 ? findUser.get(username) : undefined;
+  const user = username && username.length <= 20 ? await findUser(username) : undefined;
   // Always run bcrypt so a wrong username and a wrong password look the same.
   // Google-only accounts have no password ('!'), so they can never match here.
   const hash = user && user.password_hash !== '!' ? user.password_hash : DUMMY_HASH;

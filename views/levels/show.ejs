@@ -23,12 +23,12 @@
 
 <section class="gallery" aria-label="<%= t('Photos') %>">
   <% if (photos.length) { %>
-  <img id="gallery-main" class="gallery-main" src="/uploads/<%= photos[0].filename %>" alt="<%= t('{name} photo {n}', { name: level.name, n: 1 }) %>">
+  <img id="gallery-main" class="gallery-main" src="<%= fileUrl(photos[0].filename) %>" alt="<%= t('{name} photo {n}', { name: level.name, n: 1 }) %>">
   <% if (photos.length > 1) { %>
   <div class="thumbs">
     <% photos.forEach(function (p, i) { %>
-    <button class="thumb" type="button" data-src="/uploads/<%= p.filename %>" data-alt="<%= t('{name} photo {n}', { name: level.name, n: i + 1 }) %>">
-      <img src="/uploads/<%= p.filename %>" alt="<%= t('{name} photo {n}', { name: level.name, n: i + 1 }) %>" loading="lazy">
+    <button class="thumb" type="button" data-src="<%= fileUrl(p.filename) %>" data-alt="<%= t('{name} photo {n}', { name: level.name, n: i + 1 }) %>">
+      <img src="<%= fileUrl(p.filename) %>" alt="<%= t('{name} photo {n}', { name: level.name, n: i + 1 }) %>" loading="lazy">
     </button>
     <% }) %>
   </div>
@@ -42,7 +42,7 @@
 <section class="level-section">
   <h2><%= t('Music') %></h2>
   <% if (level.music_name) { %><p><%= level.music_name %></p><% } %>
-  <% if (level.music_file) { %><audio controls src="/uploads/<%= level.music_file %>"></audio><% } %>
+  <% if (level.music_file) { %><audio controls src="<%= fileUrl(level.music_file) %>"></audio><% } %>
 </section>
 <% } %>
 

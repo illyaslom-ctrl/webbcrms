@@ -7,7 +7,7 @@ const rateLimit = require('express-rate-limit');
 const requireLogin = require('../middleware/requireLogin');
 const { verifyCsrf } = require('../middleware/csrf');
 const { validateLevel, validateComment, COMMENT_MAX } = require('../lib/validate');
-const { checkPhoto, checkMusic, saveBuffer, removeFile } = require('../lib/fileCheck');
+const { checkPhoto, checkMusic, saveAll, removeFile } = require('../lib/fileCheck');
 
 const router = express.Router();
 
@@ -45,36 +45,22 @@ const CARD_SELECT = `
     (SELECT filename FROM level_photos p WHERE p.level_id = l.id ORDER BY position LIMIT 1) AS cover
   FROM levels l JOIN users u ON u.id = l.user_id`;
 
-const countLevels = db.prepare(`SELECT COUNT(*) AS n FROM levels WHERE name LIKE ? ESCAPE '\\'`);
-const listLevels = db.prepare(
-  `${CARD_SELECT} WHERE l.name LIKE ? ESCAPE '\\' ORDER BY l.created_at DESC, l.id DESC LIMIT ? OFFSET ?`
-);
-const getLevel = db.prepare(
-  `SELECT l.*, u.username FROM levels l JOIN users u ON u.id = l.user_id WHERE l.id = ?`
-);
-const getPhotos = db.prepare('SELECT id, filename, position FROM level_photos WHERE level_id = ? ORDER BY position');
-const insertLevel = db.prepare(`
-  INSERT INTO levels (user_id, name, level_number, description, entities, entries, exits, features,
-    lovely_places, danger_areas, danger_rating, music_name, music_file)
-  VALUES (@user_id, @name, @level_number, @description, @entities, @entries, @exits, @features,
-    @lovely_places, @danger_areas, @danger_rating, @music_name, @music_file)`);
-const updateLevel = db.prepare(`
-  UPDATE levels SET name=@name, level_number=@level_number, description=@description,
-    entities=@entities, entries=@entries, exits=@exits, features=@features,
-    lovely_places=@lovely_places, danger_areas=@danger_areas, danger_rating=@danger_rating,
-    music_name=@music_name, music_file=@music_file, updated_at=datetime('now')
-  WHERE id=@id`);
-const insertPhoto = db.prepare('INSERT INTO level_photos (level_id, filename, position) VALUES (?, ?, ?)');
-const deletePhoto = db.prepare('DELETE FROM level_photos WHERE id = ? AND level_id = ?');
-const setPosition = db.prepare('UPDATE level_photos SET position = ? WHERE id = ?');
-const deleteLevel = db.prepare('DELETE FROM levels WHERE id = ?');
-const getComments = db.prepare(`
+const COUNT_LEVELS = `SELECT COUNT(*) AS n FROM levels WHERE name LIKE ? ESCAPE '\\'`;
+const LIST_LEVELS = `${CARD_SELECT} WHERE l.name LIKE ? ESCAPE '\\' ORDER BY l.created_at DESC, l.id DESC LIMIT ? OFFSET ?`;
+const GET_LEVEL = `SELECT l.*, u.username FROM levels l JOIN users u ON u.id = l.user_id WHERE l.id = ?`;
+const GET_PHOTOS = 'SELECT id, filename, position FROM level_photos WHERE level_id = ? ORDER BY position';
+const GET_COMMENTS = `
   SELECT c.id, c.body, c.created_at, c.user_id, u.username, u.avatar
   FROM comments c JOIN users u ON u.id = c.user_id
-  WHERE c.level_id = ? ORDER BY c.created_at, c.id`);
-const getComment = db.prepare('SELECT id, level_id, user_id FROM comments WHERE id = ?');
-const insertComment = db.prepare('INSERT INTO comments (level_id, user_id, body) VALUES (?, ?, ?)');
-const deleteComment = db.prepare('DELETE FROM comments WHERE id = ?');
+  WHERE c.level_id = ? ORDER BY c.created_at, c.id`;
+
+const getLevel = (id) => db.get(GET_LEVEL, [id]);
+const getPhotos = (levelId) => db.all(GET_PHOTOS, [levelId]);
+
+const LEVEL_COLUMNS = [
+  'name', 'level_number', 'description', 'entities', 'entries', 'exits', 'features',
+  'lovely_places', 'danger_areas', 'danger_rating', 'music_name',
+];
 
 function notFound(res) {
   return res.status(404).render('404');
@@ -85,9 +71,9 @@ function parseId(value) {
 }
 
 // Loads the level if it exists and belongs to the logged-in user. Otherwise 404.
-function loadOwnLevel(req, res) {
+async function loadOwnLevel(req, res) {
   const id = parseId(req.params.id);
-  const level = id ? getLevel.get(id) : undefined;
+  const level = id ? await getLevel(id) : undefined;
   if (!level || level.user_id !== req.user.id) {
     notFound(res);
     return null;
@@ -160,15 +146,15 @@ function checkForm(req, existingPhotos) {
 }
 
 // ---------- Forum list ----------
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim().slice(0, 80) : '';
   const like = `%${q.replace(/[\\%_]/g, (c) => '\\' + c)}%`;
-  const total = countLevels.get(like).n;
+  const total = (await db.get(COUNT_LEVELS, [like])).n;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   let page = parseInt(req.query.page, 10);
   if (!Number.isInteger(page) || page < 1) page = 1;
   if (page > pages) page = pages;
-  const levels = listLevels.all(like, PAGE_SIZE, (page - 1) * PAGE_SIZE);
+  const levels = await db.all(LIST_LEVELS, [like, PAGE_SIZE, (page - 1) * PAGE_SIZE]);
   res.render('levels/index', { levels, q, page, pages, total });
 });
 
@@ -177,7 +163,7 @@ router.get('/new', requireLogin, (req, res) => {
   res.render('levels/new', { values: {}, errors: {}, filesNote: null });
 });
 
-router.post('/', requireLogin, handleUpload, verifyCsrf, (req, res) => {
+router.post('/', requireLogin, handleUpload, verifyCsrf, async (req, res) => {
   const form = checkForm(req, []);
   if (Object.keys(form.errors).length) {
     return res.status(400).render('levels/new', {
@@ -187,46 +173,45 @@ router.post('/', requireLogin, handleUpload, verifyCsrf, (req, res) => {
     });
   }
 
-  const written = [];
+  // Photos first, then the music file (if any). Nothing is in the database yet.
+  const items = form.photos.map((file, i) => ({ buffer: file.buffer, ext: form.photoInfo[i].ext, kind: 'image' }));
+  if (form.music) items.push({ buffer: form.music.buffer, ext: form.musicInfo.ext, kind: 'audio' });
+  const keys = await saveAll(items);
+  const photoKeys = keys.slice(0, form.photos.length);
+  const musicFile = form.music ? keys[keys.length - 1] : null;
+
   try {
-    const photoNames = form.photos.map((file, i) => {
-      const name = saveBuffer(file.buffer, form.photoInfo[i].ext);
-      written.push(name);
-      return name;
-    });
-    let musicFile = null;
-    if (form.music) {
-      musicFile = saveBuffer(form.music.buffer, form.musicInfo.ext);
-      written.push(musicFile);
-    }
-
-    const id = db.transaction(() => {
-      const levelId = insertLevel.run({
-        ...form.data,
-        user_id: req.user.id,
-        music_file: musicFile,
-      }).lastInsertRowid;
-      photoNames.forEach((name, i) => insertPhoto.run(levelId, name, i));
-      return levelId;
-    })();
-
+    // One all-or-nothing transaction. The photos point at the level inserted just before them.
+    const statements = [
+      [
+        `INSERT INTO levels (user_id, ${LEVEL_COLUMNS.join(', ')}, music_file)
+         VALUES (?, ${LEVEL_COLUMNS.map(() => '?').join(', ')}, ?)`,
+        [req.user.id, ...LEVEL_COLUMNS.map((c) => form.data[c]), musicFile],
+      ],
+      ...photoKeys.map((key, i) => [
+        'INSERT INTO level_photos (level_id, filename, position) VALUES ((SELECT MAX(id) FROM levels WHERE user_id = ?), ?, ?)',
+        [req.user.id, key, i],
+      ]),
+    ];
+    const results = await db.batch(statements);
     req.flash('success', 'Level published.');
-    res.redirect(`/levels/${id}`);
+    res.redirect(`/levels/${results[0].lastInsertRowid}`);
   } catch (err) {
-    written.forEach(removeFile);
+    await Promise.all(keys.map(removeFile));
     throw err;
   }
 });
 
 // ---------- Show ----------
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   const id = parseId(req.params.id);
-  const level = id ? getLevel.get(id) : undefined;
+  const level = id ? await getLevel(id) : undefined;
   if (!level) return notFound(res);
+  const [photos, comments] = await Promise.all([getPhotos(level.id), db.all(GET_COMMENTS, [level.id])]);
   res.render('levels/show', {
     level,
-    photos: getPhotos.all(level.id),
-    comments: getComments.all(level.id),
+    photos,
+    comments,
     commentMax: COMMENT_MAX,
     isAuthor: Boolean(req.user) && level.user_id === req.user.id,
   });
@@ -244,51 +229,53 @@ const commentLimiter = rateLimit({
   },
 });
 
-router.post('/:id/comments', requireLogin, commentLimiter, verifyCsrf, (req, res) => {
+router.post('/:id/comments', requireLogin, commentLimiter, verifyCsrf, async (req, res) => {
   const id = parseId(req.params.id);
-  const level = id ? getLevel.get(id) : undefined;
+  const level = id ? await getLevel(id) : undefined;
   if (!level) return notFound(res);
 
   const { text, error } = validateComment((req.body || {}).body);
   if (error) {
     req.flash('error', error);
   } else {
-    insertComment.run(level.id, req.user.id, text);
+    await db.run('INSERT INTO comments (level_id, user_id, body) VALUES (?, ?, ?)', [level.id, req.user.id, text]);
     req.flash('success', 'Comment posted.');
   }
   res.redirect(`/levels/${level.id}#comments`);
 });
 
 // Only the person who wrote a comment can delete it.
-router.post('/:id/comments/:commentId/delete', requireLogin, verifyCsrf, (req, res) => {
+router.post('/:id/comments/:commentId/delete', requireLogin, verifyCsrf, async (req, res) => {
   const id = parseId(req.params.id);
   const commentId = parseId(req.params.commentId);
-  const comment = commentId ? getComment.get(commentId) : undefined;
+  const comment = commentId
+    ? await db.get('SELECT id, level_id, user_id FROM comments WHERE id = ?', [commentId])
+    : undefined;
   if (!id || !comment || comment.level_id !== id || comment.user_id !== req.user.id) {
     return notFound(res);
   }
-  deleteComment.run(comment.id);
+  await db.run('DELETE FROM comments WHERE id = ?', [comment.id]);
   req.flash('success', 'Comment deleted.');
   res.redirect(`/levels/${id}#comments`);
 });
 
 // ---------- Edit ----------
-router.get('/:id/edit', requireLogin, (req, res) => {
-  const level = loadOwnLevel(req, res);
+router.get('/:id/edit', requireLogin, async (req, res) => {
+  const level = await loadOwnLevel(req, res);
   if (!level) return;
   res.render('levels/edit', {
     level,
-    photos: getPhotos.all(level.id),
+    photos: await getPhotos(level.id),
     values: levelToValues(level),
     errors: {},
     filesNote: null,
   });
 });
 
-router.post('/:id/edit', requireLogin, handleUpload, verifyCsrf, (req, res) => {
-  const level = loadOwnLevel(req, res);
+router.post('/:id/edit', requireLogin, handleUpload, verifyCsrf, async (req, res) => {
+  const level = await loadOwnLevel(req, res);
   if (!level) return;
-  const existing = getPhotos.all(level.id);
+  const existing = await getPhotos(level.id);
   const form = checkForm(req, existing);
 
   if (Object.keys(form.errors).length) {
@@ -301,47 +288,53 @@ router.post('/:id/edit', requireLogin, handleUpload, verifyCsrf, (req, res) => {
     });
   }
 
-  const written = [];
+  const items = form.photos.map((file, i) => ({ buffer: file.buffer, ext: form.photoInfo[i].ext, kind: 'image' }));
+  if (form.music) items.push({ buffer: form.music.buffer, ext: form.musicInfo.ext, kind: 'audio' });
+  const keys = await saveAll(items);
+  const photoKeys = keys.slice(0, form.photos.length);
+  const musicFile = form.music ? keys[keys.length - 1] : level.music_file;
+
   try {
-    const photoNames = form.photos.map((file, i) => {
-      const name = saveBuffer(file.buffer, form.photoInfo[i].ext);
-      written.push(name);
-      return name;
-    });
-    let musicFile = level.music_file;
-    if (form.music) {
-      musicFile = saveBuffer(form.music.buffer, form.musicInfo.ext);
-      written.push(musicFile);
-    }
-
-    db.transaction(() => {
-      updateLevel.run({ ...form.data, id: level.id, music_file: musicFile });
-      form.removeIds.forEach((photoId) => deletePhoto.run(photoId, level.id));
-      let position = 0;
-      getPhotos.all(level.id).forEach((p) => setPosition.run(position++, p.id));
-      photoNames.forEach((name) => insertPhoto.run(level.id, name, position++));
-    })();
-
-    // Only now, after the save worked, remove the files that are no longer used.
-    existing.filter((p) => form.removeIds.includes(p.id)).forEach((p) => removeFile(p.filename));
-    if (form.music && level.music_file) removeFile(level.music_file);
-
-    req.flash('success', 'Changes saved.');
-    res.redirect(`/levels/${level.id}`);
+    const kept = existing.filter((p) => !form.removeIds.includes(p.id));
+    const statements = [
+      [
+        `UPDATE levels SET ${LEVEL_COLUMNS.map((c) => `${c} = ?`).join(', ')}, music_file = ?,
+           updated_at = datetime('now') WHERE id = ?`,
+        [...LEVEL_COLUMNS.map((c) => form.data[c]), musicFile, level.id],
+      ],
+      ...form.removeIds.map((photoId) => ['DELETE FROM level_photos WHERE id = ? AND level_id = ?', [photoId, level.id]]),
+      ...kept.map((p, i) => ['UPDATE level_photos SET position = ? WHERE id = ?', [i, p.id]]),
+      ...photoKeys.map((key, i) => [
+        'INSERT INTO level_photos (level_id, filename, position) VALUES (?, ?, ?)',
+        [level.id, key, kept.length + i],
+      ]),
+    ];
+    await db.batch(statements);
   } catch (err) {
-    written.forEach(removeFile);
+    await Promise.all(keys.map(removeFile));
     throw err;
   }
+
+  // Only now, after the save worked, remove the files that are no longer used.
+  await Promise.all(existing.filter((p) => form.removeIds.includes(p.id)).map((p) => removeFile(p.filename)));
+  if (form.music && level.music_file) await removeFile(level.music_file);
+
+  req.flash('success', 'Changes saved.');
+  res.redirect(`/levels/${level.id}`);
 });
 
 // ---------- Delete ----------
-router.post('/:id/delete', requireLogin, verifyCsrf, (req, res) => {
-  const level = loadOwnLevel(req, res);
+router.post('/:id/delete', requireLogin, verifyCsrf, async (req, res) => {
+  const level = await loadOwnLevel(req, res);
   if (!level) return;
-  const photos = getPhotos.all(level.id);
-  deleteLevel.run(level.id);
-  photos.forEach((p) => removeFile(p.filename));
-  if (level.music_file) removeFile(level.music_file);
+  const photos = await getPhotos(level.id);
+  await db.batch([
+    ['DELETE FROM comments WHERE level_id = ?', [level.id]],
+    ['DELETE FROM level_photos WHERE level_id = ?', [level.id]],
+    ['DELETE FROM levels WHERE id = ?', [level.id]],
+  ]);
+  await Promise.all(photos.map((p) => removeFile(p.filename)));
+  if (level.music_file) await removeFile(level.music_file);
   req.flash('success', 'Level deleted.');
   res.redirect('/levels');
 });

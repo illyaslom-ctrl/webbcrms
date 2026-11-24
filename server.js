@@ -6,7 +6,9 @@ const express = require('express');
 const session = require('express-session');
 const helmet = require('helmet');
 
-require('./db');
+const db = require('./db');
+const DbStore = require('./lib/sessionStore');
+const storage = require('./lib/storage');
 const { ensureUploadDir, UPLOAD_DIR } = require('./lib/fileCheck');
 const requireLogin = require('./middleware/requireLogin');
 const { csrfToken } = require('./middleware/csrf');
@@ -45,8 +47,8 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'"],
-        imgSrc: ["'self'", 'data:'],
-        mediaSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com'],
+        mediaSrc: ["'self'", 'https://res.cloudinary.com'],
         formAction: ["'self'"],
         frameAncestors: ["'none'"],
         baseUri: ["'self'"],
@@ -64,6 +66,7 @@ app.use(express.urlencoded({ extended: false, limit: '50kb' }));
 
 app.use(
   session({
+    store: new DbStore(),
     secret,
     resave: false,
     saveUninitialized: false,
@@ -87,6 +90,7 @@ app.use((req, res, next) => {
   res.locals.googleEnabled = google.enabled();
   res.locals.errors = {};
   res.locals.values = {};
+  res.locals.fileUrl = storage.url;
   next();
 });
 
@@ -131,6 +135,17 @@ app.use((err, req, res, next) => {
   res.status(500).render('error', { message: 'Something went wrong. Please try again.' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Backrooms Levels is running at http://localhost:${PORT}`);
-});
+db.init()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Backrooms Levels is running at http://localhost:${PORT}`);
+      console.log(`Database: ${db.isRemote ? 'Turso' : 'local file'}. Uploads: ${storage.usesCloudinary ? 'Cloudinary' : 'local disk'}.`);
+      if (isProduction && !(db.isRemote && storage.usesCloudinary)) {
+        console.warn('Warning: data or uploads are stored on this server\'s disk. Many hosts erase it on restart.');
+      }
+    });
+  })
+  .catch((err) => {
+    console.error('Could not start the database:', err.message);
+    process.exit(1);
+  });

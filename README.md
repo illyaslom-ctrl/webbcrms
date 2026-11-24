@@ -7,7 +7,7 @@ A small website where people publish their own Backrooms levels through a fixed 
 - Only the author can edit or delete a level. Only the writer can delete a comment.
 - Account page: profile picture, nickname, password, delete account.
 
-Built with Node.js, Express, EJS, SQLite (better-sqlite3), bcryptjs, multer, helmet and express-rate-limit.
+Built with Node.js, Express, EJS, SQLite through libSQL (a local file, or Turso when hosted), Cloudinary for uploads when hosted, bcryptjs, multer, helmet and express-rate-limit.
 
 ## Run it on your computer
 
@@ -21,7 +21,7 @@ npm start
 
 3. Open http://localhost:3000
 
-The database is created in `data/app.db` and uploads go to `public/uploads/` (both are created on start and are not stored in git).
+With no extra settings the database is created in `data/app.db` and uploads go to `public/uploads/` (both are created on start and are not stored in git). Logins are kept in the same database.
 
 ## Settings (environment variables)
 
@@ -32,6 +32,8 @@ The database is created in `data/app.db` and uploads go to `public/uploads/` (bo
 | `DATA_DIR` | Folder for the database and uploads (`app.db` and `uploads/`). Point it at a persistent disk when hosting. Default: `data/` and `public/uploads/`. |
 | `PORT` | Port to listen on. Default 3000. |
 | `BASE_URL` | The public address of the site, for example `https://my-site.onrender.com`. Needed for Google sign-in when hosted. |
+| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Keep the database (and logins) in Turso, so they survive restarts. Leave them out to use the local file. |
+| `CLOUDINARY_URL` | Keep uploads in Cloudinary, in the form `cloudinary://API_KEY:API_SECRET@CLOUD_NAME`. Leave it out to use the local disk. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Turn on "Continue with Google". Leave them out and the button is hidden. |
 
 ## Google sign-in setup
@@ -46,6 +48,17 @@ The database is created in `data/app.db` and uploads go to `public/uploads/` (bo
 
 While the consent screen is in "Testing" mode only the test users you list there can sign in. Click **Publish app** to let everyone in.
 
-## Hosting
+## Free hosting that keeps your data (Turso + Cloudinary)
 
-This is a server app, so it cannot run on GitHub Pages. It needs a host that runs Node.js. For real use the host must keep a disk for the data (`DATA_DIR`). Free plans without a disk lose accounts, levels and uploads on every restart or redeploy.
+A free web host such as Render erases its own disk on every restart. To keep everything, put the data somewhere else:
+
+1. **Turso** (database): create a free account at https://turso.tech, create a database, then copy its URL (starts with `libsql://`) and create a token. Set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` on the host.
+2. **Cloudinary** (photos, music, avatars): create a free account at https://cloudinary.com, open **Settings > API Keys** (or the dashboard) and copy the **API environment variable** (starts with `cloudinary://`). Set it as `CLOUDINARY_URL` on the host.
+
+The tables are created automatically on the first start. When `NODE_ENV=production` and one of the two is missing, the server prints a warning in its log.
+
+Files are checked on the server (type, size, no videos) before they go to Cloudinary. Deleting a level, photo, avatar or account also deletes the files from Cloudinary.
+
+## Other hosting notes
+
+This is a server app, so it cannot run on GitHub Pages. It needs a host that runs Node.js. Without Turso and Cloudinary, the host must keep a disk for the data (`DATA_DIR`), otherwise accounts, levels and uploads are lost on every restart or redeploy.

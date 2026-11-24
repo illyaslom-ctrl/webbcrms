@@ -1,2 +1,2 @@
 <% const avatarSize = locals.size || 'sm'; %>
-<% if (person.avatar) { %><img class="avatar avatar-<%= avatarSize %>" src="/uploads/<%= person.avatar %>" alt="<%= locals.alt || '' %>"><% } else { %><span class="avatar avatar-<%= avatarSize %> avatar-initial" aria-hidden="true"><%= person.username.charAt(0).toUpperCase() %></span><% } %>
+<% if (person.avatar) { %><img class="avatar avatar-<%= avatarSize %>" src="<%= fileUrl(person.avatar) %>" alt="<%= locals.alt || '' %>"><% } else { %><span class="avatar avatar-<%= avatarSize %> avatar-initial" aria-hidden="true"><%= person.username.charAt(0).toUpperCase() %></span><% } %>

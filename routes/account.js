@@ -17,19 +17,11 @@ const uploadAvatar = multer({
   limits: { fileSize: AVATAR_MAX, files: 1, fields: 5 },
 }).single('avatar');
 
-const getAccount = db.prepare('SELECT id, username, avatar, password_hash, google_id FROM users WHERE id = ?');
-const nameTakenByOther = db.prepare('SELECT 1 FROM users WHERE username = ? AND id != ?');
-const setUsername = db.prepare('UPDATE users SET username = ? WHERE id = ?');
-const setAvatar = db.prepare('UPDATE users SET avatar = ? WHERE id = ?');
-const setPasswordHash = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?');
-const levelPhotos = db.prepare(
-  'SELECT p.filename FROM level_photos p JOIN levels l ON l.id = p.level_id WHERE l.user_id = ?'
-);
-const levelMusic = db.prepare('SELECT music_file FROM levels WHERE user_id = ? AND music_file IS NOT NULL');
-const deleteUser = db.prepare('DELETE FROM users WHERE id = ?');
+const getAccount = (id) =>
+  db.get('SELECT id, username, avatar, password_hash, google_id FROM users WHERE id = ?', [id]);
 
-function renderAccount(req, res, { status = 200, errors = {}, values = {} } = {}) {
-  const account = getAccount.get(req.user.id);
+async function renderAccount(req, res, { status = 200, errors = {}, values = {} } = {}) {
+  const account = await getAccount(req.user.id);
   res.status(status).render('account', {
     errors,
     values: { nickname: account.username, ...values },
@@ -40,19 +32,21 @@ function renderAccount(req, res, { status = 200, errors = {}, values = {} } = {}
 router.get('/', (req, res) => renderAccount(req, res));
 
 // ---------- Nickname ----------
-router.post('/nickname', verifyCsrf, (req, res) => {
+router.post('/nickname', verifyCsrf, async (req, res) => {
   const { value, error } = checkUsername((req.body || {}).nickname, 'Nickname');
   const errors = {};
   if (error) errors.nickname = error;
-  else if (nameTakenByOther.get(value, req.user.id)) errors.nickname = 'Nickname is already taken.';
+  else if (await db.get('SELECT 1 AS x FROM users WHERE username = ? AND id != ?', [value, req.user.id])) {
+    errors.nickname = 'Nickname is already taken.';
+  }
 
   if (errors.nickname) {
     return renderAccount(req, res, { status: 400, errors, values: { nickname: value } });
   }
   try {
-    setUsername.run(value, req.user.id);
+    await db.run('UPDATE users SET username = ? WHERE id = ?', [value, req.user.id]);
   } catch (err) {
-    if (err.code !== 'SQLITE_CONSTRAINT_UNIQUE') throw err;
+    if (!db.isUniqueError(err)) throw err;
     return renderAccount(req, res, {
       status: 400,
       errors: { nickname: 'Nickname is already taken.' },
@@ -74,7 +68,7 @@ function handleAvatarUpload(req, res, next) {
   });
 }
 
-router.post('/avatar', handleAvatarUpload, verifyCsrf, (req, res) => {
+router.post('/avatar', handleAvatarUpload, verifyCsrf, async (req, res) => {
   let message = null;
   let ext = null;
 
@@ -92,30 +86,30 @@ router.post('/avatar', handleAvatarUpload, verifyCsrf, (req, res) => {
   }
   if (message) return renderAccount(req, res, { status: 400, errors: { avatar: message } });
 
-  const previous = getAccount.get(req.user.id).avatar;
-  const filename = saveBuffer(req.file.buffer, ext);
+  const previous = (await getAccount(req.user.id)).avatar;
+  const key = await saveBuffer(req.file.buffer, ext, 'image');
   try {
-    setAvatar.run(filename, req.user.id);
+    await db.run('UPDATE users SET avatar = ? WHERE id = ?', [key, req.user.id]);
   } catch (err) {
-    removeFile(filename);
+    await removeFile(key);
     throw err;
   }
-  removeFile(previous);
+  await removeFile(previous);
   req.flash('success', 'Picture saved.');
   res.redirect('/account');
 });
 
-router.post('/avatar/remove', verifyCsrf, (req, res) => {
-  const previous = getAccount.get(req.user.id).avatar;
-  setAvatar.run(null, req.user.id);
-  removeFile(previous);
+router.post('/avatar/remove', verifyCsrf, async (req, res) => {
+  const previous = (await getAccount(req.user.id)).avatar;
+  await db.run('UPDATE users SET avatar = NULL WHERE id = ?', [req.user.id]);
+  await removeFile(previous);
   req.flash('success', 'Picture removed.');
   res.redirect('/account');
 });
 
 // ---------- Password ----------
 router.post('/password', verifyCsrf, async (req, res) => {
-  const account = getAccount.get(req.user.id);
+  const account = await getAccount(req.user.id);
   if (account.password_hash === '!') return res.status(404).render('404');
 
   const body = req.body || {};
@@ -126,14 +120,14 @@ router.post('/password', verifyCsrf, async (req, res) => {
 
   if (Object.keys(errors).length) return renderAccount(req, res, { status: 400, errors });
 
-  setPasswordHash.run(await hashPassword(body.password), req.user.id);
+  await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [await hashPassword(body.password), req.user.id]);
   req.flash('success', 'Password changed.');
   res.redirect('/account');
 });
 
 // ---------- Delete account ----------
-router.post('/delete', verifyCsrf, (req, res, next) => {
-  const account = getAccount.get(req.user.id);
+router.post('/delete', verifyCsrf, async (req, res, next) => {
+  const account = await getAccount(req.user.id);
   const typed = typeof (req.body || {}).confirm === 'string' ? req.body.confirm.trim() : '';
   if (typed !== account.username) {
     return renderAccount(req, res, {
@@ -143,13 +137,24 @@ router.post('/delete', verifyCsrf, (req, res, next) => {
   }
 
   // Collect every file first, delete the rows, and only then delete the files.
-  const files = [
-    account.avatar,
-    ...levelPhotos.all(account.id).map((r) => r.filename),
-    ...levelMusic.all(account.id).map((r) => r.music_file),
-  ];
-  deleteUser.run(account.id);
-  files.forEach(removeFile);
+  const photos = await db.all(
+    'SELECT p.filename FROM level_photos p JOIN levels l ON l.id = p.level_id WHERE l.user_id = ?',
+    [account.id]
+  );
+  const music = await db.all('SELECT music_file FROM levels WHERE user_id = ? AND music_file IS NOT NULL', [
+    account.id,
+  ]);
+  const files = [account.avatar, ...photos.map((r) => r.filename), ...music.map((r) => r.music_file)];
+
+  const ownLevels = '(SELECT id FROM levels WHERE user_id = ?)';
+  await db.batch([
+    [`DELETE FROM comments WHERE level_id IN ${ownLevels}`, [account.id]],
+    ['DELETE FROM comments WHERE user_id = ?', [account.id]],
+    [`DELETE FROM level_photos WHERE level_id IN ${ownLevels}`, [account.id]],
+    ['DELETE FROM levels WHERE user_id = ?', [account.id]],
+    ['DELETE FROM users WHERE id = ?', [account.id]],
+  ]);
+  await Promise.all(files.map(removeFile));
 
   req.session.destroy((err) => {
     if (err) return next(err);
